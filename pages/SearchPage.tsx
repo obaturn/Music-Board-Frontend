@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { Music } from '../types';
 import MusicCard from '../components/MusicCard';
+import PlaylistSelector from '../components/PlaylistSelector';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 interface SearchFilters {
@@ -24,6 +25,8 @@ const SearchPage: React.FC = () => {
   const [pagination, setPagination] = useState<any>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [selectedMusic, setSelectedMusic] = useState<Music | null>(null);
+  const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout>();
 
   // Load search history from localStorage
@@ -160,6 +163,11 @@ const SearchPage: React.FC = () => {
     };
     setFilters(clearedFilters);
     setSearchParams(new URLSearchParams());
+  };
+
+  const handleAddToPlaylist = (music: Music) => {
+    setSelectedMusic(music);
+    setShowPlaylistSelector(true);
   };
 
   return (
@@ -362,7 +370,7 @@ const SearchPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {musicList.length > 0 ? (
               musicList.map(music => (
-                <MusicCard key={music._id} music={music} playlist={musicList} />
+                <MusicCard key={music._id} music={music} onAddToPlaylist={handleAddToPlaylist} playlist={musicList} />
               ))
             ) : (
               <div className="col-span-full text-center py-20">
@@ -418,6 +426,17 @@ const SearchPage: React.FC = () => {
             </div>
           )}
         </>
+      )}
+
+      {selectedMusic && (
+        <PlaylistSelector
+          isOpen={showPlaylistSelector}
+          onClose={() => {
+            setShowPlaylistSelector(false);
+            setSelectedMusic(null);
+          }}
+          music={selectedMusic}
+        />
       )}
     </div>
   );

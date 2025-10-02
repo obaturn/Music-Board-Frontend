@@ -25,8 +25,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const currentTime = Date.now();
       const timeUntilExpiry = expirationTime - currentTime;
 
-      // Refresh 5 minutes before expiration
-      const refreshTime = Math.max(timeUntilExpiry - (5 * 60 * 1000), 0);
+      // For short sessions (15min), refresh 2 minutes before expiry
+      // For long sessions (7 days), refresh 1 hour before expiry
+      const isLongSession = timeUntilExpiry > (24 * 60 * 60 * 1000); // > 24 hours
+      const refreshBuffer = isLongSession ? (60 * 60 * 1000) : (2 * 60 * 1000); // 1 hour or 2 minutes
+      const refreshTime = Math.max(timeUntilExpiry - refreshBuffer, 0);
 
       clearRefreshTimeout();
 
@@ -58,14 +61,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (storedAccessToken && storedRefreshToken) {
         const currentUser = api.getCurrentUser(storedAccessToken);
         if (currentUser) {
+          // Access token is still valid
           setUser(currentUser);
           setAccessToken(storedAccessToken);
           setRefreshToken(storedRefreshToken);
           scheduleTokenRefresh(storedAccessToken);
         } else {
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
+          // Access token expired, try to refresh asynchronously
+          refreshTokenOnStartup(storedRefreshToken);
         }
+      } else {
+        // No stored tokens, user is not authenticated
+        setIsLoading(false);
       }
     } catch (error) {
       console.error("Failed to initialize auth:", error);
@@ -74,6 +81,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setRefreshToken(null);
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      setIsLoading(false);
+    }
+  }, [scheduleTokenRefresh]);
+
+  const refreshTokenOnStartup = useCallback(async (storedRefreshToken: string) => {
+    try {
+      console.log('Access token expired, attempting refresh on startup...');
+      const { accessToken: newAccessToken } = await api.refreshToken(storedRefreshToken);
+      const refreshedUser = api.getCurrentUser(newAccessToken);
+      if (refreshedUser) {
+        localStorage.setItem('accessToken', newAccessToken);
+        setUser(refreshedUser);
+        setAccessToken(newAccessToken);
+        setRefreshToken(storedRefreshToken);
+        scheduleTokenRefresh(newAccessToken);
+        console.log('Token refreshed successfully on app start');
+      } else {
+        throw new Error('Failed to decode refreshed token');
+      }
+    } catch (refreshError) {
+      console.error('Token refresh failed on app start:', refreshError);
+      // Clear all tokens if refresh fails
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      setUser(null);
+      setAccessToken(null);
+      setRefreshToken(null);
     } finally {
       setIsLoading(false);
     }
@@ -82,7 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     initializeAuth();
     return () => clearRefreshTimeout();
-  }, [initializeAuth]);
+  }, [initializeAuth, refreshTokenOnStartup]);
 
   // Listen for token refresh events
   useEffect(() => {
@@ -96,8 +130,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => window.removeEventListener('tokenRefreshed', handleTokenRefresh as EventListener);
   }, [scheduleTokenRefresh]);
 
-  const login = async (email: string, password: string) => {
-    const { accessToken: newAccessToken, refreshToken: newRefreshToken } = await api.login(email, password);
+  const login = async (email: string, password: string, rememberMe: boolean = false) => {
+    const { accessToken: newAccessToken, refreshToken: newRefreshToken } = await api.login(email, password, rememberMe);
     const currentUser = api.getCurrentUser(newAccessToken);
 
     localStorage.setItem('accessToken', newAccessToken);

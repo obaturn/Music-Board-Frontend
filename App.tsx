@@ -4,12 +4,14 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 // FIX: `useAuth` is exported from `./hooks/useAuth`, not `./context/AuthContext`.
 import { AuthProvider } from './context/AuthContext';
 import { AudioProvider } from './context/AudioContext';
+import { NotificationProvider } from './context/NotificationContext';
 import { useAuth } from './hooks/useAuth';
 import { useAudio } from './hooks/useAudio';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import AudioPlayer from './components/AudioPlayer';
 import FullPlayer from './components/FullPlayer';
+import NotificationContainer from './components/NotificationContainer';
 import LandingPage from './pages/LandingPage';
 import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
@@ -21,7 +23,11 @@ import EditMusicPage from './pages/EditMusicPage';
 import WordPressContentPage from './pages/WordPressContentPage';
 import UserLibraryPage from './pages/UserLibraryPage';
 import PlaylistDetailPage from './pages/PlaylistDetailPage';
+import ArtistPage from './pages/ArtistPage';
+import AlbumPage from './pages/AlbumPage';
+import BrowsePage from './pages/BrowsePage';
 import { UserRole } from './types';
+import JoinPlaylistPage from './pages/JoinPlaylistPage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement; roles: UserRole[] }> = ({ children, roles }) => {
   const { user, isAuthenticated } = useAuth();
@@ -54,10 +60,13 @@ const AppRoutes: React.FC = () => {
                      <div className="max-w-7xl mx-auto">
                          <Routes>
                              <Route path="/" element={isAuthenticated ? <HomePage /> : <LandingPage />} />
+                             <Route path="/browse" element={<BrowsePage />} />
                              <Route path="/search" element={<SearchPage />} />
                              <Route path="/login" element={<LoginPage />} />
                              <Route path="/register" element={<RegisterPage />} />
                              <Route path="/music/:id" element={<MusicDetailPage />} />
+                             <Route path="/artists/:id" element={<ArtistPage />} />
+                             <Route path="/albums/:id" element={<AlbumPage />} />
                              <Route path="/add" element={
                                  <ProtectedRoute roles={[UserRole.EMPLOYER, UserRole.ADMIN]}>
                                      <AddMusicPage />
@@ -83,12 +92,18 @@ const AppRoutes: React.FC = () => {
                                      <PlaylistDetailPage />
                                  </ProtectedRoute>
                              } />
+                             <Route path="/playlists/join/:inviteCode" element={
+                                 <ProtectedRoute roles={[UserRole.USER, UserRole.EMPLOYER, UserRole.ADMIN]}>
+                                     <JoinPlaylistPage />
+                                 </ProtectedRoute>
+                             } />
                              <Route path="*" element={<Navigate to="/" />} />
                          </Routes>
                      </div>
                  </main>
                  <AudioPlayer />
                  <FullPlayer isOpen={isFullPlayerOpen} onClose={toggleFullPlayer} />
+                 <NotificationContainer />
              </div>
          </div>
      )
@@ -96,13 +111,15 @@ const AppRoutes: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <AudioProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </AudioProvider>
-    </AuthProvider>
+    <NotificationProvider>
+      <AuthProvider>
+        <AudioProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </AudioProvider>
+      </AuthProvider>
+    </NotificationProvider>
   );
 };
 

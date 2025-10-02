@@ -3,14 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { Music } from '../types';
 
 interface MusicFormProps {
-  onSubmit: (formData: Omit<Music, '_id' | 'createdAt' | 'coverArt' | 'ownerId' | 'audioFilePath' | 'fileSize' | 'mimeType'> & { audioFile?: File }) => void;
+  onSubmit: (formData: Omit<Music, '_id' | 'createdAt' | 'coverArt' | 'ownerId' | 'audioFilePath' | 'fileSize' | 'mimeType' | 'videoFilePath' | 'videoFileSize' | 'videoMimeType'> & { audioFile?: File; videoFile?: File }) => void;
   initialData?: Music;
   isLoading: boolean;
   submitButtonText: string;
   requireAudioFile?: boolean;
 }
 
-type FormData = Omit<Music, '_id' | 'createdAt' | 'coverArt' | 'ownerId' | 'audioFilePath' | 'fileSize' | 'mimeType'> & { audioFile?: File };
+type FormData = Omit<Music, '_id' | 'createdAt' | 'coverArt' | 'ownerId' | 'audioFilePath' | 'fileSize' | 'mimeType' | 'videoFilePath' | 'videoFileSize' | 'videoMimeType'> & { audioFile?: File; videoFile?: File };
 
 const MusicForm: React.FC<MusicFormProps> = ({ onSubmit, initialData, isLoading, submitButtonText, requireAudioFile = true }) => {
   const [formData, setFormData] = useState<FormData>({
@@ -23,7 +23,9 @@ const MusicForm: React.FC<MusicFormProps> = ({ onSubmit, initialData, isLoading,
     description: '',
   });
   const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string>('');
+  const [videoFileError, setVideoFileError] = useState<string>('');
   const [uploadProgress, setUploadProgress] = useState<number>(0);
 
   useEffect(() => {
@@ -61,20 +63,51 @@ const MusicForm: React.FC<MusicFormProps> = ({ onSubmit, initialData, isLoading,
     return null;
   };
 
+  const validateVideoFile = (file: File): string | null => {
+    const allowedTypes = ['video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/ogg'];
+    const maxSize = 100 * 1024 * 1024; // 100MB
+
+    if (!allowedTypes.includes(file.type)) {
+      return 'Invalid file type. Please upload a video file (mp4, mov, avi, webm, etc.)';
+    }
+    if (file.size > maxSize) {
+      return 'File too large. Maximum size is 100MB.';
+    }
+    return null;
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const error = validateAudioFile(file);
-      if (error) {
-        setFileError(error);
-        setAudioFile(null);
+    const fieldName = e.target.name;
+
+    if (fieldName === 'audioFile') {
+      if (file) {
+        const error = validateAudioFile(file);
+        if (error) {
+          setFileError(error);
+          setAudioFile(null);
+        } else {
+          setFileError('');
+          setAudioFile(file);
+        }
       } else {
+        setAudioFile(null);
         setFileError('');
-        setAudioFile(file);
       }
-    } else {
-      setAudioFile(null);
-      setFileError('');
+    } else if (fieldName === 'videoFile') {
+      if (file) {
+        const error = validateVideoFile(file);
+        if (error) {
+          setVideoFileError(error);
+          setVideoFile(null);
+        } else {
+          setVideoFileError('');
+          setVideoFile(file);
+        }
+      } else {
+        setVideoFile(null);
+        setVideoFileError('');
+      }
     }
   };
 
@@ -84,7 +117,11 @@ const MusicForm: React.FC<MusicFormProps> = ({ onSubmit, initialData, isLoading,
       setFileError('Please select an audio file');
       return;
     }
-    onSubmit({ ...formData, ...(audioFile && { audioFile }) });
+    onSubmit({
+      ...formData,
+      ...(audioFile && { audioFile }),
+      ...(videoFile && { videoFile })
+    });
   };
 
   const renderInput = (name: keyof FormData, label: string, type = 'text') => (
@@ -135,6 +172,26 @@ const MusicForm: React.FC<MusicFormProps> = ({ onSubmit, initialData, isLoading,
           />
           {fileError && <p className="text-red-400 text-sm mt-2">{fileError}</p>}
           {audioFile && <p className="text-green-400 text-sm mt-2">Selected: {audioFile.name}</p>}
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-spotify-gray-light text-sm font-medium mb-2" htmlFor="videoFile">
+            Background Video (Optional)
+            <span className="text-xs text-spotify-gray-light ml-2">MP4, MOV, AVI, WebM - Max 100MB</span>
+          </label>
+          <input
+            id="videoFile"
+            name="videoFile"
+            type="file"
+            accept="video/*"
+            onChange={handleFileChange}
+            className="w-full p-3 bg-spotify-dark border border-spotify-gray rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-spotify-green file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-spotify-green file:text-white hover:file:bg-spotify-green-hover transition-colors"
+          />
+          {videoFileError && <p className="text-red-400 text-sm mt-2">{videoFileError}</p>}
+          {videoFile && <p className="text-green-400 text-sm mt-2">Selected: {videoFile.name}</p>}
+          <p className="text-spotify-gray-light text-xs mt-1">
+            Upload a short video that will play as background when this track is playing (like Spotify Canvas)
+          </p>
         </div>
 
         {isLoading && (

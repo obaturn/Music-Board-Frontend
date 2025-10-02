@@ -1,38 +1,61 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../services/api';
-import { Music } from '../types';
+import { Music, Artist, Album } from '../types';
 import MusicCard from '../components/MusicCard';
+import PlaylistSelector from '../components/PlaylistSelector';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Modal from '../components/Modal';
 import { useAuth } from '../hooks/useAuth';
 
 const HomePage: React.FC = () => {
-  const { token } = useAuth();
+  const { token, isAuthenticated } = useAuth();
   const [musicList, setMusicList] = useState<Music[]>([]);
+  const [artists, setArtists] = useState<Artist[]>([]);
+  const [albums, setAlbums] = useState<Album[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [genreFilter, setGenreFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [musicToDelete, setMusicToDelete] = useState<string | null>(null);
+  const [selectedMusic, setSelectedMusic] = useState<Music | null>(null);
+  const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
 
   useEffect(() => {
-    const fetchMusic = async () => {
+    const fetchData = async () => {
+      if (!isAuthenticated || !token) {
+        setIsLoading(false);
+        return;
+      }
+
       try {
         setIsLoading(true);
         setError(null);
-        const data = await api.getMusic();
-        setMusicList(data);
+
+        // Fetch music (public), artists and albums (authenticated only)
+        const [musicData, artistsData, albumsData] = await Promise.all([
+          api.getMusic(),
+          api.getArtists({ limit: 10 }).catch(() => ({ artists: [] })), // Fallback if fails
+          api.getAlbums({ limit: 10 }).catch(() => ({ albums: [] }))    // Fallback if fails
+        ]);
+
+        setMusicList(musicData);
+        setArtists(artistsData.artists || []);
+        setAlbums(albumsData.albums || []);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch music');
+        setError(err instanceof Error ? err.message : 'Failed to fetch data');
+        // Still set music list to empty arrays for artists/albums if API fails
+        setArtists([]);
+        setAlbums([]);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchMusic();
-  }, []);
+    fetchData();
+  }, [isAuthenticated, token]);
 
   const genres = useMemo(() => {
     const allGenres = musicList.map(m => m.genre);
@@ -65,6 +88,11 @@ const HomePage: React.FC = () => {
       setIsModalOpen(false);
       setMusicToDelete(null);
     }
+  };
+
+  const handleAddToPlaylist = (music: Music) => {
+    setSelectedMusic(music);
+    setShowPlaylistSelector(true);
   };
 
   if (isLoading) {
@@ -104,24 +132,174 @@ const HomePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Featured Playlists Section */}
+      {/* Popular Artists Section */}
+      {artists.length > 0 && (
+        <section>
+          <h2 className="text-2xl font-bold text-white mb-6">Popular Artists</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {artists.map((artist) => (
+              <Link
+                key={artist._id}
+                to={`/artists/${artist._id}`}
+                className="bg-spotify-dark p-4 rounded-lg hover:bg-spotify-light transition-colors group text-center"
+              >
+                <div className="w-24 h-24 mx-auto mb-3 bg-spotify-light rounded-full overflow-hidden">
+                  {artist.profilePicture ? (
+                    <img
+                      src={artist.profilePicture}
+                      alt={artist.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = `https://picsum.photos/seed/${artist.name}/200`;
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-spotify-green to-spotify-light flex items-center justify-center">
+                      <span className="text-2xl font-bold text-white">
+                        {artist.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <h3 className="text-white font-medium text-sm truncate group-hover:text-spotify-green transition-colors">
+                  {artist.name}
+                </h3>
+                <p className="text-spotify-gray-light text-xs mt-1">
+                  {artist.followerCount} followers
+                </p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* New Albums Section */}
+      {albums.length > 0 && (
+        <section>
+          <h2 className="text-2xl font-bold text-white mb-6">New Albums</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {albums.map((album) => (
+              <Link
+                key={album._id}
+                to={`/albums/${album._id}`}
+                className="bg-spotify-dark p-4 rounded-lg hover:bg-spotify-light transition-colors group"
+              >
+                <div className="aspect-square bg-spotify-light rounded-lg mb-3 overflow-hidden">
+                  {album.coverArt ? (
+                    <img
+                      src={album.coverArt}
+                      alt={album.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      onError={(e) => {
+                        e.currentTarget.src = `https://picsum.photos/seed/${album.title}/300`;
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-spotify-green to-spotify-light flex items-center justify-center">
+                      <span className="text-xl font-bold text-white">
+                        {album.title.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <h3 className="text-white font-medium text-sm truncate group-hover:text-spotify-green transition-colors">
+                  {album.title}
+                </h3>
+                <p className="text-spotify-gray-light text-xs truncate">
+                  {album.artist.name}
+                </p>
+                <p className="text-spotify-gray-light text-xs mt-1">
+                  {album.releaseYear}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Made for You Section - Spotify Style */}
       <section>
         <h2 className="text-2xl font-bold text-white mb-6">Made for You</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {/* Featured playlist cards would go here - for now showing recent music */}
-          {filteredMusic.slice(0, 4).map(music => (
-            <div key={`featured-${music._id}`} className="spotify-card group">
-              <div className="aspect-square bg-gradient-to-br from-spotify-green to-spotify-green-dark rounded-lg flex items-center justify-center">
-                <svg className="w-16 h-16 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3V3z" />
-                </svg>
+          {/* Daily Mix */}
+          <div className="group cursor-pointer">
+            <div className="relative aspect-square bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 rounded-lg p-6 flex flex-col justify-between overflow-hidden">
+              <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
+              <div className="relative z-10">
+                <h3 className="text-white font-bold text-xl mb-2">Daily Mix 1</h3>
+                <p className="text-white/80 text-sm">Your daily mix of fresh music</p>
               </div>
-              <div className="p-4">
-                <h3 className="text-white font-semibold text-lg mb-2">Daily Mix 1</h3>
-                <p className="text-spotify-gray-light text-sm">Based on your listening history</p>
+              <div className="relative z-10 flex -space-x-2">
+                {filteredMusic.slice(0, 4).map((music, index) => (
+                  <div
+                    key={music._id}
+                    className="w-8 h-8 bg-spotify-light rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white"
+                    style={{
+                      backgroundImage: music.coverArt ? `url(${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}/uploads/cover-arts/${music.coverArt})` : undefined,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center'
+                    }}
+                  >
+                    {!music.coverArt && music.title.charAt(0).toUpperCase()}
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
+          </div>
+
+          {/* Discover Weekly */}
+          <div className="group cursor-pointer">
+            <div className="relative aspect-square bg-gradient-to-br from-green-600 via-teal-500 to-blue-500 rounded-lg p-6 flex flex-col justify-between overflow-hidden">
+              <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
+              <div className="relative z-10">
+                <h3 className="text-white font-bold text-xl mb-2">Discover Weekly</h3>
+                <p className="text-white/80 text-sm">Your weekly music discovery</p>
+              </div>
+              <div className="relative z-10">
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Release Radar */}
+          <div className="group cursor-pointer">
+            <div className="relative aspect-square bg-gradient-to-br from-red-600 via-pink-600 to-purple-600 rounded-lg p-6 flex flex-col justify-between overflow-hidden">
+              <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
+              <div className="relative z-10">
+                <h3 className="text-white font-bold text-xl mb-2">Release Radar</h3>
+                <p className="text-white/80 text-sm">New music from artists you follow</p>
+              </div>
+              <div className="relative z-10">
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Recently Played */}
+          <div className="group cursor-pointer">
+            <div className="relative aspect-square bg-gradient-to-br from-yellow-600 via-orange-500 to-red-500 rounded-lg p-6 flex flex-col justify-between overflow-hidden">
+              <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
+              <div className="relative z-10">
+                <h3 className="text-white font-bold text-xl mb-2">Recently Played</h3>
+                <p className="text-white/80 text-sm">Your recently played tracks</p>
+              </div>
+              <div className="relative z-10">
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.293l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -130,7 +308,7 @@ const HomePage: React.FC = () => {
         <h2 className="text-2xl font-bold text-white mb-6">Recently Played</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredMusic.slice(0, 8).map(music => (
-            <MusicCard key={`recent-${music._id}`} music={music} onDelete={handleDeleteRequest} playlist={filteredMusic} />
+            <MusicCard key={`recent-${music._id}`} music={music} onDelete={handleDeleteRequest} onAddToPlaylist={handleAddToPlaylist} playlist={filteredMusic} />
           ))}
         </div>
       </section>
@@ -141,7 +319,7 @@ const HomePage: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredMusic.length > 0 ? (
             filteredMusic.map(music => (
-              <MusicCard key={music._id} music={music} onDelete={handleDeleteRequest} playlist={filteredMusic} />
+              <MusicCard key={music._id} music={music} onDelete={handleDeleteRequest} onAddToPlaylist={handleAddToPlaylist} playlist={filteredMusic} />
             ))
           ) : (
             <div className="col-span-full text-center py-12">
@@ -163,6 +341,17 @@ const HomePage: React.FC = () => {
       >
         Are you sure you want to delete this music entry? This action cannot be undone.
       </Modal>
+
+      {selectedMusic && (
+        <PlaylistSelector
+          isOpen={showPlaylistSelector}
+          onClose={() => {
+            setShowPlaylistSelector(false);
+            setSelectedMusic(null);
+          }}
+          music={selectedMusic}
+        />
+      )}
     </div>
   );
 };

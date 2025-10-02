@@ -5,6 +5,7 @@ import { api } from '../services/api';
 import PlaylistCard from '../components/PlaylistCard';
 import MusicCard from '../components/MusicCard';
 import PlaylistForm from '../components/PlaylistForm';
+import PlaylistSelector from '../components/PlaylistSelector';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const UserLibraryPage: React.FC = () => {
@@ -14,6 +15,8 @@ const UserLibraryPage: React.FC = () => {
   const [favorites, setFavorites] = useState<Music[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [selectedMusic, setSelectedMusic] = useState<Music | null>(null);
+  const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
 
   useEffect(() => {
     if (token) {
@@ -59,8 +62,8 @@ const UserLibraryPage: React.FC = () => {
   };
 
   const handleAddToPlaylist = (music: Music) => {
-    // For now, just alert. Later implement playlist selector modal
-    alert(`Add "${music.title}" to playlist - feature coming soon!`);
+    setSelectedMusic(music);
+    setShowPlaylistSelector(true);
   };
 
   if (loading) return <LoadingSpinner />;
@@ -216,6 +219,17 @@ const UserLibraryPage: React.FC = () => {
         onSubmit={handleCreatePlaylist}
         title="Create New Playlist"
       />
+
+      {selectedMusic && (
+        <PlaylistSelector
+          isOpen={showPlaylistSelector}
+          onClose={() => {
+            setShowPlaylistSelector(false);
+            setSelectedMusic(null);
+          }}
+          music={selectedMusic}
+        />
+      )}
     </div>
   );
 };

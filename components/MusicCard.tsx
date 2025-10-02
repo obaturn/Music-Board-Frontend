@@ -111,7 +111,29 @@ const MusicCard: React.FC<MusicCardProps> = ({ music, onDelete, onPlay, playlist
             <h3 className="text-white font-semibold text-base truncate group-hover:text-spotify-green transition-colors">
               {music.title}
             </h3>
-            <p className="text-spotify-gray-light text-sm truncate">{music.artist}</p>
+            <div className="flex items-center gap-1 text-spotify-gray-light text-sm">
+              {music.artistRef ? (
+                <Link
+                  to={`/artists/${music.artistRef}`}
+                  className="hover:text-white transition-colors truncate"
+                >
+                  {music.artist}
+                </Link>
+              ) : (
+                <span className="truncate">{music.artist}</span>
+              )}
+              {music.albumRef && (
+                <>
+                  <span>•</span>
+                  <Link
+                    to={`/albums/${music.albumRef}`}
+                    className="hover:text-white transition-colors truncate"
+                  >
+                    {music.album}
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
           <div className="flex items-center justify-between text-xs text-spotify-gray-light">
             <span>{formatDuration(music.duration)}</span>

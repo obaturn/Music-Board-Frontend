@@ -4,11 +4,15 @@ import { useAudio } from '../hooks/useAudio';
 const AudioPlayer: React.FC = () => {
   const {
     currentTrack,
+    playlist,
+    currentIndex,
     isPlaying,
     currentTime,
     duration,
     volume,
     isMuted,
+    repeatMode,
+    isShuffled,
     toggleFullPlayer,
     play,
     pause,
@@ -17,7 +21,12 @@ const AudioPlayer: React.FC = () => {
     seek,
     setVolume,
     toggleMute,
+    setRepeatMode,
+    toggleShuffle,
+    removeFromPlaylist,
   } = useAudio();
+
+  const [showQueue, setShowQueue] = React.useState(false);
 
   if (!currentTrack) {
     return null;
@@ -73,6 +82,15 @@ const AudioPlayer: React.FC = () => {
             </p>
           </div>
           <button
+            onClick={() => setShowQueue(!showQueue)}
+            className="p-2 text-spotify-gray-light hover:text-white transition-colors opacity-0 group-hover:opacity-100 md:opacity-100"
+            aria-label="Toggle queue"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+          </button>
+          <button
             onClick={toggleFullPlayer}
             className="p-2 text-spotify-gray-light hover:text-white transition-colors opacity-0 group-hover:opacity-100 md:opacity-100"
             aria-label="Open full player"
@@ -86,7 +104,20 @@ const AudioPlayer: React.FC = () => {
         {/* Controls */}
         <div className="flex flex-col items-center gap-2 md:gap-3 flex-1 max-w-md">
           {/* Buttons */}
-          <div className="flex items-center gap-2 md:gap-4">
+          <div className="flex items-center gap-1 md:gap-2">
+            {/* Shuffle Button */}
+            <button
+              onClick={toggleShuffle}
+              className={`p-1 md:p-2 transition-colors hover:scale-110 transform ${
+                isShuffled ? 'text-spotify-green' : 'text-spotify-gray-light hover:text-white'
+              }`}
+              aria-label="Toggle shuffle"
+            >
+              <svg className="w-4 h-4 md:w-5 md:h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+              </svg>
+            </button>
+
             <button
               onClick={previous}
               className="p-1 md:p-2 text-spotify-gray-light hover:text-white transition-colors hover:scale-110 transform"
@@ -121,6 +152,24 @@ const AudioPlayer: React.FC = () => {
               <svg className="w-4 h-4 md:w-5 md:h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M4.555 5.168A1 1 0 003 6v8a1 1 0 001.555.832L10 11.202V14a1 1 0 001.555.832l6-4a1 1 0 000-1.664l-6-4A1 1 0 0010 6v2.798l-5.445-3.63z" />
               </svg>
+            </button>
+
+            {/* Repeat Button */}
+            <button
+              onClick={() => setRepeatMode(repeatMode === 'none' ? 'all' : repeatMode === 'all' ? 'one' : 'none')}
+              className={`p-1 md:p-2 transition-colors hover:scale-110 transform ${
+                repeatMode !== 'none' ? 'text-spotify-green' : 'text-spotify-gray-light hover:text-white'
+              }`}
+              aria-label={`Repeat ${repeatMode}`}
+            >
+              <div className="relative">
+                <svg className="w-4 h-4 md:w-5 md:h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                </svg>
+                {repeatMode === 'one' && (
+                  <span className="absolute -top-1 -right-1 text-xs font-bold">1</span>
+                )}
+              </div>
             </button>
           </div>
 
@@ -187,6 +236,83 @@ const AudioPlayer: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Queue Panel */}
+      {showQueue && playlist.length > 0 && (
+        <div className="absolute bottom-full left-0 right-0 bg-spotify-dark border-t border-spotify-gray max-h-96 overflow-y-auto">
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-semibold">Queue</h3>
+              <button
+                onClick={() => setShowQueue(false)}
+                className="text-spotify-gray-light hover:text-white"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-2">
+              {playlist.map((track, index) => (
+                <div
+                  key={`${track._id}-${index}`}
+                  className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-spotify-light transition-colors ${
+                    index === currentIndex ? 'bg-spotify-green bg-opacity-20' : ''
+                  }`}
+                  onClick={() => {
+                    // This would need to be implemented in AudioContext
+                    // For now, just close the queue
+                    setShowQueue(false);
+                  }}
+                >
+                  <div className="w-10 h-10 bg-spotify-light rounded overflow-hidden flex-shrink-0">
+                    {track.coverArt ? (
+                      <img
+                        src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}/uploads/cover-arts/${track.coverArt}`}
+                        alt={track.album}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div className={`w-full h-full flex items-center justify-center ${track.coverArt ? 'hidden' : ''}`}
+                         style={{ background: 'linear-gradient(135deg, #535353, #282828)' }}>
+                      <svg className="w-4 h-4 text-spotify-gray-light" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3V3z" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className={`font-medium truncate ${index === currentIndex ? 'text-spotify-green' : 'text-white'}`}>
+                      {track.title}
+                    </h4>
+                    <p className="text-spotify-gray-light text-sm truncate">{track.artist}</p>
+                  </div>
+                  <div className="text-spotify-gray-light text-sm">
+                    {formatTime(track.duration)}
+                  </div>
+                  {index !== currentIndex && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeFromPlaylist(index);
+                      }}
+                      className="p-1 text-spotify-gray-light hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

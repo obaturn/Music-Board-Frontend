@@ -12,24 +12,29 @@ interface SidebarLinkProps {
 
 const SidebarLink: React.FC<SidebarLinkProps> = ({ to, icon, label, onClick }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const isActive = location.pathname === to;
 
   const handleClick = (e: React.MouseEvent) => {
-    // Only call onClick for mobile (when sidebar needs to close)
-    if (onClick && window.innerWidth < 768) {
+    e.preventDefault();
+    e.stopPropagation();
+    // Navigate programmatically
+    navigate(to);
+    // Close sidebar on all devices after navigation
+    if (onClick) {
       onClick();
     }
   };
 
   return (
-    <Link
-      to={to}
+    <button
       onClick={handleClick}
-      className={`spotify-sidebar-link ${isActive ? 'active' : ''}`}
+      className={`spotify-sidebar-link w-full text-left ${isActive ? 'active' : ''}`}
+      style={{ pointerEvents: 'auto', cursor: 'pointer' }}
     >
       {icon}
       <span className="font-medium">{label}</span>
-    </Link>
+    </button>
   );
 };
 
@@ -66,6 +71,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         </svg>
       ),
       label: 'Search',
+    },
+    {
+      to: '/browse',
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        </svg>
+      ),
+      label: 'Browse',
     },
   ];
 
@@ -115,18 +129,32 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       {/* Sidebar */}
       <div className={`
         h-full w-64 bg-spotify-black border-r border-spotify-dark
-        transform transition-transform duration-300 ease-in-out pointer-events-auto
+        transform transition-transform duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         fixed left-0 top-0 z-50 md:static md:translate-x-0 md:z-auto
-      `}>
+      `}
+      style={{
+        zIndex: isOpen ? 60 : 50,
+        pointerEvents: 'auto'
+      }}
+      >
         {/* Logo */}
         <div className="p-6 border-b border-spotify-dark">
-          <Link to="/" className="flex items-center gap-3" onClick={onClose}>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              navigate('/');
+              onClose();
+            }}
+            className="flex items-center gap-3 w-full text-left"
+            style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+          >
             <svg className="w-8 h-8 text-spotify-green" fill="currentColor" viewBox="0 0 20 20">
               <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3V3z" />
             </svg>
             <span className="text-xl font-bold text-white">MusicBoard</span>
-          </Link>
+          </button>
         </div>
 
         {/* Navigation */}
@@ -221,20 +249,30 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             </div>
           ) : (
             <div className="space-y-2">
-              <Link
-                to="/login"
-                onClick={onClose}
-                className="block w-full spotify-button-secondary text-center"
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  navigate('/login');
+                  onClose();
+                }}
+                className="block w-full spotify-button-secondary text-center py-2 px-4 rounded-full font-medium transition-colors hover:bg-spotify-gray"
+                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
               >
                 Log in
-              </Link>
-              <Link
-                to="/register"
-                onClick={onClose}
-                className="block w-full spotify-button text-center"
+              </button>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  navigate('/register');
+                  onClose();
+                }}
+                className="block w-full spotify-button text-center py-2 px-4 rounded-full font-medium transition-colors"
+                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
               >
                 Sign up
-              </Link>
+              </button>
             </div>
           )}
         </div>

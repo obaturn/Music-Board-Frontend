@@ -1,4 +1,4 @@
-import { User, Music, UserRole, WordPressPost, Playlist, Favorite } from '../types';
+import { User, Music, UserRole, WordPressPost, Playlist, Favorite, Artist, Album, Following } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -20,7 +20,9 @@ const refreshAccessToken = async (): Promise<string> => {
 
       const { accessToken } = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ refreshToken }),
       }).then(res => {
         if (!res.ok) throw new Error('Token refresh failed');
@@ -121,17 +123,24 @@ export const api = {
     return response.json();
   },
 
-  login: async (email: string, password: string): Promise<{ accessToken: string; refreshToken: string }> => {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ email, password }),
-    });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Login failed');
+  login: async (email: string, password: string, rememberMe: boolean = false): Promise<{ accessToken: string; refreshToken: string }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ email, password, rememberMe }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Login failed');
+      }
+      return response.json();
+    } catch (error) {
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        throw new Error('Unable to connect to the server. Please check your internet connection or ensure the server is running.');
+      }
+      throw error;
     }
-    return response.json();
   },
 
   refreshToken: async (refreshToken: string): Promise<{ accessToken: string }> => {
@@ -198,10 +207,12 @@ export const api = {
       }
     });
 
+    // Always use regular fetch for search - no authentication required for basic search
     const response = await fetch(`${API_BASE_URL}/music/search?${queryParams}`, {
       method: 'GET',
-      headers: getAuthHeaders(),
+      headers: { 'Content-Type': 'application/json' },
     });
+
     if (!response.ok) {
       throw new Error('Failed to search music');
     }
@@ -310,6 +321,7 @@ export const api = {
     if (data.duration !== undefined) formData.append('duration', data.duration.toString());
     if (data.description) formData.append('description', data.description);
     if (data.audioFile) formData.append('audio', data.audioFile);
+    
 
     const response = await fetch(`${API_BASE_URL}/music/${id}`, {
       method: 'PUT',
@@ -496,6 +508,250 @@ export const api = {
     });
     if (!response.ok) {
       throw new Error('Failed to check favorite status');
+    }
+    return response.json();
+  },
+
+  // Artist APIs
+  getArtists: async (params?: { q?: string; page?: number; limit?: number }): Promise<{ artists: Artist[]; pagination: any }> => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+
+    try {
+      // Use authenticated fetch for authenticated users, fallback for guests
+      const token = localStorage.getItem('accessToken');
+      const response = token
+        ? await authenticatedFetch(`${API_BASE_URL}/artists?${queryParams}`, { method: 'GET' })
+        : await fetch(`${API_BASE_URL}/artists?${queryParams}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          });
+
+      if (!response.ok) {
+        // Return empty result for unauthenticated users or failed requests
+        return { artists: [], pagination: { currentPage: 1, totalPages: 0, totalArtists: 0 } };
+      }
+      return response.json();
+    } catch (error) {
+      // Return empty result if request completely fails
+      return { artists: [], pagination: { currentPage: 1, totalPages: 0, totalArtists: 0 } };
+    }
+  },
+
+  getArtistById: async (id: string, albumsPage = 1, albumsLimit = 6, tracksPage = 1, tracksLimit = 5): Promise<{ artist: Artist; albums: { data: Album[]; pagination: any }; topTracks: { data: Music[]; pagination: any } }> => {
+    const params = new URLSearchParams({
+      albumsPage: albumsPage.toString(),
+      albumsLimit: albumsLimit.toString(),
+      tracksPage: tracksPage.toString(),
+      tracksLimit: tracksLimit.toString()
+    });
+
+    const response = await authenticatedFetch(`${API_BASE_URL}/artists/${id}?${params}`, {
+      method: 'GET',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch artist');
+    }
+    return response.json();
+  },
+
+  createArtist: async (data: { name: string; bio?: string; genres?: string[]; profilePicture?: File }, token: string): Promise<Artist> => {
+    const formData = new FormData();
+    formData.append('name', data.name);
+    if (data.bio) formData.append('bio', data.bio);
+    if (data.genres) data.genres.forEach(genre => formData.append('genres', genre));
+    if (data.profilePicture) formData.append('profilePicture', data.profilePicture);
+
+    const response = await fetch(`${API_BASE_URL}/artists`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to create artist');
+    }
+    return response.json();
+  },
+
+  // Album APIs
+  getAlbums: async (params?: { q?: string; artist?: string; genre?: string; page?: number; limit?: number }): Promise<{ albums: Album[]; pagination: any }> => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+
+    try {
+      // Use authenticated fetch for authenticated users, fallback for guests
+      const token = localStorage.getItem('accessToken');
+      const response = token
+        ? await authenticatedFetch(`${API_BASE_URL}/albums?${queryParams}`, { method: 'GET' })
+        : await fetch(`${API_BASE_URL}/albums?${queryParams}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          });
+
+      if (!response.ok) {
+        // Return empty result for unauthenticated users or failed requests
+        return { albums: [], pagination: { currentPage: 1, totalPages: 0, totalAlbums: 0 } };
+      }
+      return response.json();
+    } catch (error) {
+      // Return empty result if request completely fails
+      return { albums: [], pagination: { currentPage: 1, totalPages: 0, totalAlbums: 0 } };
+    }
+  },
+
+  getAlbumById: async (id: string): Promise<Album> => {
+    const response = await authenticatedFetch(`${API_BASE_URL}/albums/${id}`, {
+      method: 'GET',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch album');
+    }
+    return response.json();
+  },
+
+  createAlbum: async (data: { title: string; artistId: string; releaseYear: number; description?: string; genres?: string[]; coverArt?: File }, token: string): Promise<Album> => {
+    const formData = new FormData();
+    formData.append('title', data.title);
+    formData.append('artistId', data.artistId);
+    formData.append('releaseYear', data.releaseYear.toString());
+    if (data.description) formData.append('description', data.description);
+    if (data.genres) data.genres.forEach(genre => formData.append('genres', genre));
+    if (data.coverArt) formData.append('coverArt', data.coverArt);
+
+    const response = await fetch(`${API_BASE_URL}/albums`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to create album');
+    }
+    return response.json();
+  },
+
+  // Following APIs
+  followArtist: async (artistId: string, token: string): Promise<{ message: string }> => {
+    const response = await fetch(`${API_BASE_URL}/artists/${artistId}/follow`, {
+      method: 'POST',
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to follow artist');
+    }
+    return response.json();
+  },
+
+  unfollowArtist: async (artistId: string, token: string): Promise<{ message: string }> => {
+    const response = await fetch(`${API_BASE_URL}/artists/${artistId}/follow`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to unfollow artist');
+    }
+    return response.json();
+  },
+
+  checkFollowStatus: async (artistId: string, token: string): Promise<{ isFollowing: boolean }> => {
+    const response = await fetch(`${API_BASE_URL}/artists/${artistId}/follow-status`, {
+      method: 'GET',
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to check follow status');
+    }
+    return response.json();
+  },
+
+  getUserFollowing: async (token: string): Promise<Following[]> => {
+    const response = await fetch(`${API_BASE_URL}/artists/following/me`, {
+      method: 'GET',
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch following');
+    }
+    return response.json();
+  },
+
+  // Playlist Collaboration APIs
+  inviteCollaborator: async (playlistId: string, token: string): Promise<{ inviteCode: string; inviteLink: string }> => {
+    const response = await fetch(`${API_BASE_URL}/playlists/${playlistId}/invite`, {
+      method: 'POST',
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to generate invite');
+    }
+    return response.json();
+  },
+
+  acceptInvitation: async (inviteCode: string, role: 'viewer' | 'editor' = 'viewer', token: string): Promise<Playlist> => {
+    const response = await fetch(`${API_BASE_URL}/playlists/join/${inviteCode}`, {
+      method: 'POST',
+      headers: getAuthHeaders(token),
+      body: JSON.stringify({ role }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to join playlist');
+    }
+    return response.json();
+  },
+
+  updateCollaboratorRole: async (playlistId: string, userId: string, role: 'editor' | 'viewer', token: string): Promise<Playlist> => {
+    const response = await fetch(`${API_BASE_URL}/playlists/${playlistId}/collaborators/${userId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(token),
+      body: JSON.stringify({ role }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to update collaborator role');
+    }
+    return response.json();
+  },
+
+  removeCollaborator: async (playlistId: string, userId: string, token: string): Promise<Playlist> => {
+    const response = await fetch(`${API_BASE_URL}/playlists/${playlistId}/collaborators/${userId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to remove collaborator');
+    }
+    return response.json();
+  },
+
+  getSharedPlaylists: async (token: string): Promise<Playlist[]> => {
+    const response = await fetch(`${API_BASE_URL}/playlists/shared/all`, {
+      method: 'GET',
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch shared playlists');
     }
     return response.json();
   },

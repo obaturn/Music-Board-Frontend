@@ -13,6 +13,33 @@ export interface User {
   profilePicture?: string;
 }
 
+export interface Artist {
+  _id: string;
+  name: string;
+  bio?: string;
+  profilePicture?: string;
+  genres: string[];
+  followerCount: number;
+  verified: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Album {
+  _id: string;
+  title: string;
+  artist: Artist;
+  releaseYear: number;
+  coverArt?: string;
+  description?: string;
+  genres: string[];
+  tracks: Music[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Music {
   _id: string;
   title: string;
@@ -31,12 +58,22 @@ export interface Music {
   ownerId: string;
 }
 
+export interface PlaylistCollaborator {
+  user: User;
+  role: 'editor' | 'viewer';
+  addedAt: string;
+}
+
 export interface Playlist {
   _id: string;
   name: string;
   description: string;
   user: User;
   tracks: Music[];
+  collaborators: PlaylistCollaborator[];
+  isPublic: boolean;
+  inviteCode?: string;
+  lastModifiedBy?: User;
   createdAt: string;
   updatedAt: string;
 }
@@ -46,6 +83,13 @@ export interface Favorite {
   user: User;
   track: Music;
   createdAt: string;
+}
+
+export interface Following {
+  _id: string;
+  user: string;
+  artist: Artist;
+  followedAt: string;
 }
 
 export interface WordPressPost {
@@ -100,7 +144,7 @@ export interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   register: (username: string, email: string, password: string, role: UserRole, profilePicture?: File) => Promise<void>;
   logout: () => void;
 }

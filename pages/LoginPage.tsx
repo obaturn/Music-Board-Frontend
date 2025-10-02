@@ -7,6 +7,7 @@ const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('admin@music.com');
   const [password, setPassword] = useState('password');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true); // Default to true for better UX
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -24,7 +25,7 @@ const LoginPage: React.FC = () => {
     }
 
     try {
-      await login(email, password);
+      await login(email, password, rememberMe);
       navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred.');
@@ -85,6 +86,18 @@ const LoginPage: React.FC = () => {
                 )}
               </button>
             </div>
+          </div>
+          <div className="flex items-center">
+            <input
+              id="rememberMe"
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="h-4 w-4 text-spotify-green focus:ring-spotify-green border-spotify-gray rounded"
+            />
+            <label htmlFor="rememberMe" className="ml-2 block text-sm text-spotify-gray-light">
+              Remember me for 7 days
+            </label>
           </div>
           <div className="flex items-center justify-between">
             <button
