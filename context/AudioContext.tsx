@@ -94,9 +94,41 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setError(null);
       const audioSrc = `${API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'}/uploads/audio/${currentTrack.audioFilePath}`;
       console.log('Loading audio from:', audioSrc); // Debug log
+      console.log('Current track:', currentTrack.title, 'File:', currentTrack.audioFilePath);
+      console.log('Audio element exists:', !!audioRef.current);
+      console.log('Current audio src:', audioRef.current.src);
+
       if (audioRef.current.src !== audioSrc) {
         audioRef.current.src = audioSrc;
+        console.log('Setting audio src to:', audioSrc);
+        console.log('New audio src after setting:', audioRef.current.src);
+
+        // Add error event listener for this load
+        const handleLoadError = (e: Event) => {
+          console.error('Audio load error:', e);
+          setError('Failed to load audio file - file may not exist or be corrupted');
+          setIsLoading(false);
+        };
+
+        const handleLoadSuccess = () => {
+          console.log('Audio loaded successfully');
+          setIsLoading(false);
+          setError(null);
+        };
+
+        audioRef.current.addEventListener('error', handleLoadError);
+        audioRef.current.addEventListener('loadeddata', handleLoadSuccess);
+
         audioRef.current.load();
+
+        // Cleanup listeners after load attempt
+        setTimeout(() => {
+          audioRef.current?.removeEventListener('error', handleLoadError);
+          audioRef.current?.removeEventListener('loadeddata', handleLoadSuccess);
+        }, 5000);
+      } else {
+        console.log('Audio src already set to:', audioSrc);
+        setIsLoading(false);
       }
     }
   }, [currentTrack]);
@@ -150,14 +182,63 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const play = useCallback(async () => {
     if (audioRef.current && currentTrack) {
+      // Ensure audio src is set
+      const expectedSrc = `${API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'}/uploads/audio/${currentTrack.audioFilePath}`;
+      if (audioRef.current.src !== expectedSrc) {
+        console.log('Audio src not set correctly. Expected:', expectedSrc, 'Current:', audioRef.current.src);
+        setError('Audio source not loaded. Please try selecting the track again.');
+        return;
+      }
+
       try {
+        console.log('Attempting to play audio:', currentTrack.title);
+        console.log('Audio element readyState:', audioRef.current.readyState);
+        console.log('Audio element src:', audioRef.current.src);
+
+        // If audio is not ready, wait for it or force a reload
+        if (audioRef.current.readyState < 2) {
+          console.log('Audio not ready, forcing reload...');
+          audioRef.current.load(); // Force reload
+
+          // Wait for canplay event
+          await new Promise((resolve, reject) => {
+            const onCanPlay = () => {
+              audioRef.current?.removeEventListener('canplay', onCanPlay);
+              audioRef.current?.removeEventListener('error', onError);
+              resolve(void 0);
+            };
+            const onError = (e: Event) => {
+              audioRef.current?.removeEventListener('canplay', onCanPlay);
+              audioRef.current?.removeEventListener('error', onError);
+              reject(new Error('Audio failed to load'));
+            };
+
+            audioRef.current?.addEventListener('canplay', onCanPlay);
+            audioRef.current?.addEventListener('error', onError);
+
+            // Timeout after 10 seconds
+            setTimeout(() => {
+              audioRef.current?.removeEventListener('canplay', onCanPlay);
+              audioRef.current?.removeEventListener('error', onError);
+              reject(new Error('Audio load timeout'));
+            }, 10000);
+          });
+        }
+
         await audioRef.current.play();
         setIsPlaying(true);
+        setError(null);
+        console.log('Audio started playing successfully');
       } catch (err) {
-        setError('Failed to play audio');
+        console.error('Failed to play audio:', err);
+        setError(`Failed to play audio: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        setIsPlaying(false);
       }
+    } else {
+      console.log('Cannot play: audioRef exists:', !!audioRef.current, 'currentTrack exists:', !!currentTrack);
+      setError('No track selected');
     }
-  }, [currentTrack]);
+  }, [currentTrack, API_BASE_URL]);
 
   const pause = useCallback(() => {
     if (audioRef.current) {
@@ -221,10 +302,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCurrentTrack(newPlaylist[startIndex] || null);
     shuffledIndicesRef.current = [];
 
-    // Auto-play when playlist is set
-    if (newPlaylist[startIndex]) {
-      setTimeout(() => play(), 100); // Small delay to ensure audio is loaded
-    }
+    // Note: Not auto-playing due to browser autoplay restrictions
+    // User must click play button manually
   }, []);
 
   const addToPlaylist = useCallback((track: Music) => {

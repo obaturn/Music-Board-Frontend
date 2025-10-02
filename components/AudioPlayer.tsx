@@ -13,6 +13,8 @@ const AudioPlayer: React.FC = () => {
     isMuted,
     repeatMode,
     isShuffled,
+    error,
+    isLoading,
     toggleFullPlayer,
     play,
     pause,
@@ -52,6 +54,11 @@ const AudioPlayer: React.FC = () => {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-spotify-dark border-t border-spotify-gray p-2 md:p-4 shadow-spotify z-50">
+      {error && (
+        <div className="mb-2 p-2 bg-red-500/20 text-red-400 text-sm text-center rounded">
+          {error}
+        </div>
+      )}
       <div className="max-w-7xl mx-auto flex items-center gap-2 md:gap-4">
         {/* Track Info */}
         <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1 max-w-xs">
@@ -130,10 +137,13 @@ const AudioPlayer: React.FC = () => {
 
             <button
               onClick={isPlaying ? pause : play}
-              className="w-6 h-6 md:w-8 md:h-8 bg-white rounded-full text-spotify-black hover:scale-105 transition-all duration-200 shadow-lg flex items-center justify-center"
+              disabled={isLoading}
+              className="w-6 h-6 md:w-8 md:h-8 bg-white rounded-full text-spotify-black hover:scale-105 transition-all duration-200 shadow-lg flex items-center justify-center disabled:opacity-50"
               aria-label={isPlaying ? 'Pause' : 'Play'}
             >
-              {isPlaying ? (
+              {isLoading ? (
+                <div className="w-3 h-3 md:w-4 md:h-4 border-2 border-spotify-black border-t-transparent rounded-full animate-spin"></div>
+              ) : isPlaying ? (
                 <svg className="w-3 h-3 md:w-4 md:h-4" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M6 4a1 1 0 00-1 1v10a1 1 0 001 1h1a1 1 0 001-1V5a1 1 0 00-1-1H6zM12 4a1 1 0 00-1 1v10a1 1 0 001 1h1a1 1 0 001-1V5a1 1 0 00-1-1h-1z" clipRule="evenodd" />
                 </svg>

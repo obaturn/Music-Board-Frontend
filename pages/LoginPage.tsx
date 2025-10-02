@@ -108,7 +108,10 @@ const LoginPage: React.FC = () => {
               {isLoading ? 'Logging In...' : 'Log In'}
             </button>
           </div>
-          <p className="text-center text-spotify-gray-light text-sm mt-6">
+          <p className="text-center text-spotify-gray-light text-sm mt-4">
+            <Link to="/forgot-password" className="text-spotify-green hover:underline">Forgot your password?</Link>
+          </p>
+          <p className="text-center text-spotify-gray-light text-sm mt-2">
             Don't have an account? <Link to="/register" className="text-spotify-green hover:underline">Sign up</Link>
           </p>
         </form>

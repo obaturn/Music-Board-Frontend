@@ -9,6 +9,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const clearRefreshTimeout = () => {
@@ -18,42 +19,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const scheduleTokenRefresh = useCallback((token: string) => {
+  const scheduleTokenRefresh = useCallback((token: string, storedRefreshToken?: string) => {
     try {
       const decoded = JSON.parse(atob(token.split('.')[1]));
       const expirationTime = decoded.exp * 1000;
       const currentTime = Date.now();
       const timeUntilExpiry = expirationTime - currentTime;
 
-      // For short sessions (15min), refresh 2 minutes before expiry
+      // Don't schedule refresh if token is already expired or expires in less than 30 seconds
+      if (timeUntilExpiry < 30000) {
+        console.log('Token expires too soon, not scheduling refresh');
+        return;
+      }
+
+      // For short sessions (1 hour), refresh 5 minutes before expiry
       // For long sessions (7 days), refresh 1 hour before expiry
       const isLongSession = timeUntilExpiry > (24 * 60 * 60 * 1000); // > 24 hours
-      const refreshBuffer = isLongSession ? (60 * 60 * 1000) : (2 * 60 * 1000); // 1 hour or 2 minutes
-      const refreshTime = Math.max(timeUntilExpiry - refreshBuffer, 0);
+      const refreshBuffer = isLongSession ? (60 * 60 * 1000) : (5 * 60 * 1000); // 1 hour or 5 minutes
+      const refreshTime = Math.max(timeUntilExpiry - refreshBuffer, 30000); // Minimum 30 seconds
 
       clearRefreshTimeout();
 
       refreshTimeoutRef.current = setTimeout(async () => {
         try {
-          if (refreshToken) {
+          const currentRefreshToken = storedRefreshToken || localStorage.getItem('refreshToken');
+          if (currentRefreshToken) {
             console.log('Refreshing access token...');
-            const { accessToken: newAccessToken } = await api.refreshToken(refreshToken);
+            setIsRefreshing(true);
+            const { accessToken: newAccessToken } = await api.refreshToken(currentRefreshToken);
             setAccessToken(newAccessToken);
             localStorage.setItem('accessToken', newAccessToken);
-            scheduleTokenRefresh(newAccessToken);
+            setIsRefreshing(false);
+            scheduleTokenRefresh(newAccessToken, currentRefreshToken);
             console.log('Access token refreshed successfully');
           }
         } catch (error) {
           console.error('Token refresh failed:', error);
+          setIsRefreshing(false);
           logout();
         }
       }, refreshTime);
     } catch (error) {
       console.error('Error scheduling token refresh:', error);
     }
-  }, [refreshToken]);
+  }, []);
 
-  const initializeAuth = useCallback(() => {
+  const initializeAuth = useCallback(async () => {
     try {
       const storedAccessToken = localStorage.getItem('accessToken');
       const storedRefreshToken = localStorage.getItem('refreshToken');
@@ -65,65 +76,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(currentUser);
           setAccessToken(storedAccessToken);
           setRefreshToken(storedRefreshToken);
-          scheduleTokenRefresh(storedAccessToken);
+          scheduleTokenRefresh(storedAccessToken, storedRefreshToken);
         } else {
-          // Access token expired, try to refresh asynchronously
-          refreshTokenOnStartup(storedRefreshToken);
+          // Access token expired, try to refresh
+          try {
+            const { accessToken: newAccessToken } = await api.refreshToken(storedRefreshToken);
+            const refreshedUser = api.getCurrentUser(newAccessToken);
+            if (refreshedUser) {
+              localStorage.setItem('accessToken', newAccessToken);
+              setUser(refreshedUser);
+              setAccessToken(newAccessToken);
+              setRefreshToken(storedRefreshToken);
+              scheduleTokenRefresh(newAccessToken, storedRefreshToken);
+            } else {
+              throw new Error('Failed to decode refreshed token');
+            }
+          } catch (refreshError) {
+            console.error('Token refresh failed on startup:', refreshError);
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+          }
         }
-      } else {
-        // No stored tokens, user is not authenticated
-        setIsLoading(false);
       }
     } catch (error) {
       console.error("Failed to initialize auth:", error);
-      setUser(null);
-      setAccessToken(null);
-      setRefreshToken(null);
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
-      setIsLoading(false);
-    }
-  }, [scheduleTokenRefresh]);
-
-  const refreshTokenOnStartup = useCallback(async (storedRefreshToken: string) => {
-    try {
-      console.log('Access token expired, attempting refresh on startup...');
-      const { accessToken: newAccessToken } = await api.refreshToken(storedRefreshToken);
-      const refreshedUser = api.getCurrentUser(newAccessToken);
-      if (refreshedUser) {
-        localStorage.setItem('accessToken', newAccessToken);
-        setUser(refreshedUser);
-        setAccessToken(newAccessToken);
-        setRefreshToken(storedRefreshToken);
-        scheduleTokenRefresh(newAccessToken);
-        console.log('Token refreshed successfully on app start');
-      } else {
-        throw new Error('Failed to decode refreshed token');
-      }
-    } catch (refreshError) {
-      console.error('Token refresh failed on app start:', refreshError);
-      // Clear all tokens if refresh fails
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      setUser(null);
-      setAccessToken(null);
-      setRefreshToken(null);
     } finally {
       setIsLoading(false);
     }
   }, [scheduleTokenRefresh]);
 
+
   useEffect(() => {
     initializeAuth();
     return () => clearRefreshTimeout();
-  }, [initializeAuth, refreshTokenOnStartup]);
+  }, [initializeAuth]);
 
   // Listen for token refresh events
   useEffect(() => {
     const handleTokenRefresh = (event: CustomEvent) => {
       const { accessToken: newAccessToken } = event.detail;
       setAccessToken(newAccessToken);
-      scheduleTokenRefresh(newAccessToken);
+      scheduleTokenRefresh(newAccessToken, localStorage.getItem('refreshToken') || undefined);
     };
 
     window.addEventListener('tokenRefreshed', handleTokenRefresh as EventListener);
@@ -141,7 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setRefreshToken(newRefreshToken);
     setUser(currentUser);
 
-    scheduleTokenRefresh(newAccessToken);
+    scheduleTokenRefresh(newAccessToken, newRefreshToken);
   };
 
   const register = async (username: string, email: string, password: string, role: UserRole, profilePicture?: File) => {
@@ -157,14 +152,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     clearRefreshTimeout();
   }, []);
 
+  const updateUser = useCallback((updatedUser: User) => {
+    setUser(updatedUser);
+  }, []);
+
   const contextValue = {
     user,
     token: accessToken,
-    isAuthenticated: !!accessToken,
+    isAuthenticated: !!accessToken || isRefreshing, // Stay authenticated during refresh
     isLoading,
     login,
     register,
     logout,
+    updateUser,
   };
 
   return (

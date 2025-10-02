@@ -156,6 +156,99 @@ export const api = {
     return response.json();
   },
 
+  getProfile: async (token: string): Promise<User> => {
+    const response = await authenticatedFetch(`${API_BASE_URL}/auth/profile`, {
+      method: 'GET',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch profile');
+    }
+    const data = await response.json();
+    return {
+      id: data.id,
+      username: data.username,
+      email: data.email,
+      role: data.role,
+      profilePicture: data.profilePicture,
+    };
+  },
+
+  updateProfile: async (data: { username?: string; email?: string; profilePicture?: File }, token: string): Promise<User> => {
+    const formData = new FormData();
+    if (data.username) formData.append('username', data.username);
+    if (data.email) formData.append('email', data.email);
+    if (data.profilePicture) formData.append('profilePicture', data.profilePicture);
+
+    const response = await authenticatedFetch(`${API_BASE_URL}/auth/profile`, {
+      method: 'PUT',
+      body: formData,
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to update profile');
+    }
+    const result = await response.json();
+    return {
+      id: result.user.id,
+      username: result.user.username,
+      email: result.user.email,
+      role: result.user.role,
+      profilePicture: result.user.profilePicture,
+    };
+  },
+
+  changePassword: async (currentPassword: string, newPassword: string, token: string): Promise<{ message: string }> => {
+    const response = await authenticatedFetch(`${API_BASE_URL}/auth/change-password`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to change password');
+    }
+    return response.json();
+  },
+
+  deleteAccount: async (token: string): Promise<{ message: string }> => {
+    const response = await authenticatedFetch(`${API_BASE_URL}/auth/account`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to delete account');
+    }
+    return response.json();
+  },
+
+  forgotPassword: async (email: string): Promise<{ message: string; resetToken?: string; email: string }> => {
+    const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ email }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to request password reset');
+    }
+    return response.json();
+  },
+
+  resetPassword: async (token: string, newPassword: string): Promise<{ message: string }> => {
+    const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ token, newPassword }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to reset password');
+    }
+    return response.json();
+  },
+
   getCurrentUser: (token: string): User | null => {
     return decodeJWT(token);
   },
@@ -173,8 +266,10 @@ export const api = {
       _id: item._id,
       title: item.title,
       artist: item.artist,
+      artistRef: item.artistRef,
       genre: item.genre,
       album: item.album,
+      albumRef: item.albumRef,
       releaseYear: item.releaseYear,
       duration: item.duration,
       description: item.description,
@@ -223,8 +318,10 @@ export const api = {
         _id: item._id,
         title: item.title,
         artist: item.artist,
+        artistRef: item.artistRef,
         genre: item.genre,
         album: item.album,
+        albumRef: item.albumRef,
         releaseYear: item.releaseYear,
         duration: item.duration,
         description: item.description,
@@ -254,8 +351,10 @@ export const api = {
       _id: item._id,
       title: item.title,
       artist: item.artist,
+      artistRef: item.artistRef,
       genre: item.genre,
       album: item.album,
+      albumRef: item.albumRef,
       releaseYear: item.releaseYear,
       duration: item.duration,
       description: item.description,
@@ -296,8 +395,10 @@ export const api = {
       _id: item._id,
       title: item.title,
       artist: item.artist,
+      artistRef: item.artistRef,
       genre: item.genre,
       album: item.album,
+      albumRef: item.albumRef,
       releaseYear: item.releaseYear,
       duration: item.duration,
       description: item.description,
@@ -339,8 +440,10 @@ export const api = {
       _id: item._id,
       title: item.title,
       artist: item.artist,
+      artistRef: item.artistRef,
       genre: item.genre,
       album: item.album,
+      albumRef: item.albumRef,
       releaseYear: item.releaseYear,
       duration: item.duration,
       description: item.description,
@@ -524,17 +627,14 @@ export const api = {
     }
 
     try {
-      // Use authenticated fetch for authenticated users, fallback for guests
-      const token = localStorage.getItem('accessToken');
-      const response = token
-        ? await authenticatedFetch(`${API_BASE_URL}/artists?${queryParams}`, { method: 'GET' })
-        : await fetch(`${API_BASE_URL}/artists?${queryParams}`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-          });
+      // Public endpoint - no authentication required
+      const response = await fetch(`${API_BASE_URL}/artists?${queryParams}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
 
       if (!response.ok) {
-        // Return empty result for unauthenticated users or failed requests
+        // Return empty result for failed requests
         return { artists: [], pagination: { currentPage: 1, totalPages: 0, totalArtists: 0 } };
       }
       return response.json();
@@ -594,17 +694,14 @@ export const api = {
     }
 
     try {
-      // Use authenticated fetch for authenticated users, fallback for guests
-      const token = localStorage.getItem('accessToken');
-      const response = token
-        ? await authenticatedFetch(`${API_BASE_URL}/albums?${queryParams}`, { method: 'GET' })
-        : await fetch(`${API_BASE_URL}/albums?${queryParams}`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-          });
+      // Public endpoint - no authentication required
+      const response = await fetch(`${API_BASE_URL}/albums?${queryParams}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
 
       if (!response.ok) {
-        // Return empty result for unauthenticated users or failed requests
+        // Return empty result for failed requests
         return { albums: [], pagination: { currentPage: 1, totalPages: 0, totalAlbums: 0 } };
       }
       return response.json();
@@ -755,4 +852,112 @@ export const api = {
     }
     return response.json();
   },
+
+  // Admin APIs
+  getAllUsers: async (token: string): Promise<User[]> => {
+    const response = await authenticatedFetch(`${API_BASE_URL}/auth/admin/users`, {
+      method: 'GET',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch users');
+    }
+    return response.json();
+  },
+
+  updateUserRole: async (userId: string, role: UserRole, token: string): Promise<User> => {
+    const response = await authenticatedFetch(`${API_BASE_URL}/auth/admin/users/${userId}/role`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ role }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to update user role');
+    }
+    return response.json();
+  },
+
+  deleteUser: async (userId: string, token: string): Promise<{ message: string }> => {
+    const response = await authenticatedFetch(`${API_BASE_URL}/auth/admin/users/${userId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to delete user');
+    }
+    return response.json();
+  },
+
+  getAdminStats: async (token: string): Promise<{
+    totalUsers: number;
+    totalMusic: number;
+    totalArtists: number;
+    totalAlbums: number;
+    usersByRole: { _id: string; count: number }[];
+    recentUsers: User[];
+    recentMusic: Music[];
+  }> => {
+    const response = await authenticatedFetch(`${API_BASE_URL}/auth/admin/stats`, {
+      method: 'GET',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch admin stats');
+    }
+    return response.json();
+  },
+
+  // External Music Platform APIs (Conceptual - requires API keys and proper licensing)
+  /*
+  // Spotify Web API Integration Example
+  searchSpotify: async (query: string, type: 'track' | 'album' | 'artist' = 'track'): Promise<any> => {
+    const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
+    const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
+
+    // Get access token
+    const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${btoa(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`)}`
+      },
+      body: 'grant_type=client_credentials'
+    });
+
+    const { access_token } = await tokenResponse.json();
+
+    // Search Spotify
+    const searchResponse = await fetch(
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=${type}&limit=20`,
+      {
+        headers: { 'Authorization': `Bearer ${access_token}` }
+      }
+    );
+
+    return searchResponse.json();
+  },
+
+  // Boomplay API Integration (Conceptual - Boomplay may not have public API)
+  // Note: Boomplay might require partnership or licensing agreements
+
+  // YouTube Music API (Limited public access)
+  searchYouTubeMusic: async (query: string): Promise<any> => {
+    // YouTube Data API v3
+    const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
+    const response = await fetch(
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&videoCategoryId=10&key=${YOUTUBE_API_KEY}`
+    );
+    return response.json();
+  },
+
+  // SoundCloud API
+  searchSoundCloud: async (query: string): Promise<any> => {
+    const SOUNDCLOUD_CLIENT_ID = process.env.SOUNDCLOUD_CLIENT_ID;
+    const response = await fetch(
+      `https://api.soundcloud.com/tracks?q=${encodeURIComponent(query)}&client_id=${SOUNDCLOUD_CLIENT_ID}`
+    );
+    return response.json();
+  }
+  */
 };

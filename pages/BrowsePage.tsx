@@ -77,6 +77,32 @@ const BrowsePage: React.FC = () => {
     setSelectedCategory(categoryId);
   };
 
+  const handleMoodClick = (moodId: string) => {
+    // Map moods to appropriate genres
+    const moodToGenreMap: { [key: string]: string } = {
+      'happy': 'pop',
+      'chill': 'ambient',
+      'energetic': 'electronic',
+      'romantic': 'r&b',
+      'focus': 'classical',
+      'party': 'hip-hop'
+    };
+    setSelectedCategory(moodToGenreMap[moodId] || 'all');
+  };
+
+  const handleActivityClick = (activityId: string) => {
+    // Map activities to appropriate genres
+    const activityToGenreMap: { [key: string]: string } = {
+      'workout': 'electronic',
+      'commute': 'pop',
+      'study': 'classical',
+      'cooking': 'jazz',
+      'sleep': 'ambient',
+      'travel': 'rock'
+    };
+    setSelectedCategory(activityToGenreMap[activityId] || 'all');
+  };
+
   const handleAddToPlaylist = (music: Music) => {
     setSelectedMusic(music);
     setShowPlaylistSelector(true);
@@ -116,14 +142,15 @@ const BrowsePage: React.FC = () => {
         <h2 className="text-2xl font-bold text-white mb-6">Browse by Mood</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {moodCategories.map((mood) => (
-            <div
+            <button
               key={mood.id}
-              className={`p-6 rounded-lg bg-gradient-to-br ${mood.color} hover:scale-105 transition-all duration-300 cursor-pointer`}
+              onClick={() => handleMoodClick(mood.id)}
+              className={`p-6 rounded-lg bg-gradient-to-br ${mood.color} hover:scale-105 transition-all duration-300 cursor-pointer text-left w-full`}
             >
               <div className="text-4xl mb-3">{mood.icon}</div>
               <h3 className="text-white font-semibold text-lg">{mood.name}</h3>
               <p className="text-white text-opacity-80 text-sm mt-1">Perfect for feeling {mood.name.toLowerCase()}</p>
-            </div>
+            </button>
           ))}
         </div>
       </section>
@@ -133,14 +160,15 @@ const BrowsePage: React.FC = () => {
         <h2 className="text-2xl font-bold text-white mb-6">Browse by Activity</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {activityCategories.map((activity) => (
-            <div
+            <button
               key={activity.id}
-              className={`p-6 rounded-lg bg-gradient-to-br ${activity.color} hover:scale-105 transition-all duration-300 cursor-pointer`}
+              onClick={() => handleActivityClick(activity.id)}
+              className={`p-6 rounded-lg bg-gradient-to-br ${activity.color} hover:scale-105 transition-all duration-300 cursor-pointer text-left w-full`}
             >
               <div className="text-4xl mb-3">{activity.icon}</div>
               <h3 className="text-white font-semibold text-lg">{activity.name}</h3>
               <p className="text-white text-opacity-80 text-sm mt-1">Great for {activity.name.toLowerCase()}</p>
-            </div>
+            </button>
           ))}
         </div>
       </section>

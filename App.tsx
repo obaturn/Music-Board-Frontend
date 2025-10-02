@@ -12,6 +12,7 @@ import Header from './components/Header';
 import AudioPlayer from './components/AudioPlayer';
 import FullPlayer from './components/FullPlayer';
 import NotificationContainer from './components/NotificationContainer';
+import ErrorBoundary from './components/ErrorBoundary';
 import LandingPage from './pages/LandingPage';
 import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
@@ -26,6 +27,9 @@ import PlaylistDetailPage from './pages/PlaylistDetailPage';
 import ArtistPage from './pages/ArtistPage';
 import AlbumPage from './pages/AlbumPage';
 import BrowsePage from './pages/BrowsePage';
+import UserProfilePage from './pages/UserProfilePage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
 import { UserRole } from './types';
 import JoinPlaylistPage from './pages/JoinPlaylistPage';
 
@@ -64,6 +68,7 @@ const AppRoutes: React.FC = () => {
                              <Route path="/search" element={<SearchPage />} />
                              <Route path="/login" element={<LoginPage />} />
                              <Route path="/register" element={<RegisterPage />} />
+                             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                              <Route path="/music/:id" element={<MusicDetailPage />} />
                              <Route path="/artists/:id" element={<ArtistPage />} />
                              <Route path="/albums/:id" element={<AlbumPage />} />
@@ -97,6 +102,16 @@ const AppRoutes: React.FC = () => {
                                      <JoinPlaylistPage />
                                  </ProtectedRoute>
                              } />
+                             <Route path="/profile" element={
+                                 <ProtectedRoute roles={[UserRole.USER, UserRole.EMPLOYER, UserRole.ADMIN]}>
+                                     <UserProfilePage />
+                                 </ProtectedRoute>
+                             } />
+                             <Route path="/admin" element={
+                                 <ProtectedRoute roles={[UserRole.ADMIN]}>
+                                     <AdminDashboardPage />
+                                 </ProtectedRoute>
+                             } />
                              <Route path="*" element={<Navigate to="/" />} />
                          </Routes>
                      </div>
@@ -111,15 +126,17 @@ const AppRoutes: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <NotificationProvider>
-      <AuthProvider>
-        <AudioProvider>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </AudioProvider>
-      </AuthProvider>
-    </NotificationProvider>
+    <ErrorBoundary>
+      <NotificationProvider>
+        <AuthProvider>
+          <AudioProvider>
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </AudioProvider>
+        </AuthProvider>
+      </NotificationProvider>
+    </ErrorBoundary>
   );
 };
 

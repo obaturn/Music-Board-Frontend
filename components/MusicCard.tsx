@@ -65,11 +65,11 @@ const MusicCard: React.FC<MusicCardProps> = ({ music, onDelete, onPlay, playlist
   };
 
   return (
-    <div className="spotify-card group cursor-pointer">
+    <div className="spotify-card group cursor-pointer transform transition-all duration-300 hover:scale-[1.02] hover:shadow-spotify-hover">
       <div className="relative aspect-square overflow-hidden rounded-lg">
         {music.coverArt ? (
           <img
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:brightness-75"
             src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}/uploads/cover-arts/${music.coverArt}`}
             alt={music.album}
             onError={(e) => {
@@ -87,19 +87,19 @@ const MusicCard: React.FC<MusicCardProps> = ({ music, onDelete, onPlay, playlist
           />
         ) : (
           // Default album art
-          <div className="w-full h-full bg-gradient-to-br from-spotify-gray to-spotify-dark flex items-center justify-center">
-            <svg className="w-16 h-16 text-spotify-gray-light" fill="currentColor" viewBox="0 0 20 20">
+          <div className="w-full h-full bg-gradient-to-br from-spotify-gray to-spotify-dark flex items-center justify-center group-hover:from-spotify-green group-hover:to-spotify-green-dark transition-all duration-300">
+            <svg className="w-16 h-16 text-spotify-gray-light group-hover:text-white transition-colors duration-300" fill="currentColor" viewBox="0 0 20 20">
               <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3V3z" />
             </svg>
           </div>
         )}
         <button
           onClick={handlePlay}
-          className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-opacity-60"
+          className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-black/80"
           aria-label={`Play ${music.title}`}
         >
-          <div className="w-12 h-12 bg-spotify-green rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform duration-200">
-            <svg className="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 20 20">
+          <div className="w-14 h-14 bg-spotify-green rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-all duration-200 animate-pulse group-hover:animate-none">
+            <svg className="w-7 h-7 text-white ml-1" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 2L3 7v6l7 5V2z" clipRule="evenodd" />
             </svg>
           </div>
@@ -142,15 +142,17 @@ const MusicCard: React.FC<MusicCardProps> = ({ music, onDelete, onPlay, playlist
         </div>
 
         {/* Action buttons - shown on hover */}
-        <div className="mt-4 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <div className="flex items-center gap-2">
+        <div className="mt-4 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
+          <div className="flex items-center gap-1">
             {user && (
               <>
                 <button
                   onClick={toggleFavorite}
                   disabled={loadingFavorite}
-                  className={`p-2 rounded-full transition-colors hover:bg-spotify-light ${
-                    isFavorite ? 'text-red-500' : 'text-spotify-gray-light hover:text-red-500'
+                  className={`p-2.5 rounded-full transition-all duration-200 hover:scale-110 ${
+                    isFavorite
+                      ? 'text-red-500 bg-red-500/10 hover:bg-red-500/20'
+                      : 'text-spotify-gray-light hover:text-red-500 hover:bg-spotify-light'
                   }`}
                   aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
                 >
@@ -160,7 +162,7 @@ const MusicCard: React.FC<MusicCardProps> = ({ music, onDelete, onPlay, playlist
                 </button>
                 <button
                   onClick={() => onAddToPlaylist?.(music)}
-                  className="p-2 rounded-full text-spotify-gray-light hover:text-white hover:bg-spotify-light transition-colors"
+                  className="p-2.5 rounded-full text-spotify-gray-light hover:text-white hover:bg-spotify-light transition-all duration-200 hover:scale-110"
                   aria-label="Add to playlist"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -172,7 +174,7 @@ const MusicCard: React.FC<MusicCardProps> = ({ music, onDelete, onPlay, playlist
           </div>
           <Link
             to={`/music/${music._id}`}
-            className="text-spotify-green hover:text-spotify-green-hover font-medium text-sm transition-colors"
+            className="text-spotify-green hover:text-spotify-green-hover font-medium text-sm transition-all duration-200 hover:scale-105 px-3 py-1.5 rounded-full hover:bg-spotify-green/10"
           >
             Details
           </Link>

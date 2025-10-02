@@ -44,8 +44,10 @@ export interface Music {
   _id: string;
   title: string;
   artist: string;
+  artistRef?: string;
   genre: string;
   album: string;
+  albumRef?: string;
   releaseYear: number;
   duration: number; // in seconds
   description: string;
@@ -147,4 +149,5 @@ export interface AuthContextType {
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   register: (username: string, email: string, password: string, role: UserRole, profilePicture?: File) => Promise<void>;
   logout: () => void;
+  updateUser: (user: User) => void;
 }

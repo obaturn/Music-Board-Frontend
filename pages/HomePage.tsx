@@ -10,7 +10,7 @@ import Modal from '../components/Modal';
 import { useAuth } from '../hooks/useAuth';
 
 const HomePage: React.FC = () => {
-  const { token, isAuthenticated } = useAuth();
+  const { user, token, isAuthenticated } = useAuth();
   const [musicList, setMusicList] = useState<Music[]>([]);
   const [artists, setArtists] = useState<Artist[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
@@ -25,16 +25,11 @@ const HomePage: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!isAuthenticated || !token) {
-        setIsLoading(false);
-        return;
-      }
-
       try {
         setIsLoading(true);
         setError(null);
 
-        // Fetch music (public), artists and albums (authenticated only)
+        // Fetch music (public), artists and albums (now public)
         const [musicData, artistsData, albumsData] = await Promise.all([
           api.getMusic(),
           api.getArtists({ limit: 10 }).catch(() => ({ artists: [] })), // Fallback if fails
@@ -55,7 +50,7 @@ const HomePage: React.FC = () => {
     };
 
     fetchData();
-  }, [isAuthenticated, token]);
+  }, []);
 
   const genres = useMemo(() => {
     const allGenres = musicList.map(m => m.genre);
@@ -104,9 +99,64 @@ const HomePage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-12">
+      {/* Welcome Hero Section */}
+      <div className="text-center py-8">
+        <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+          Welcome back{user?.username ? `, ${user.username}` : ''}!
+        </h1>
+        <p className="text-spotify-gray-light text-lg max-w-2xl mx-auto mb-6">
+          Discover new music, create playlists, and connect with artists from around the world.
+        </p>
+        {isAuthenticated && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap justify-center gap-3">
+              <Link
+                to="/profile"
+                className="group bg-gradient-to-r from-spotify-green to-spotify-green-hover hover:from-spotify-green-hover hover:to-spotify-green text-white font-medium py-3 px-8 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 border border-spotify-green/50"
+              >
+                <span className="flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  Profile Settings
+                </span>
+              </Link>
+              {user?.role === 'admin' && (
+                <Link
+                  to="/admin"
+                  className="group bg-gradient-to-r from-spotify-dark to-spotify-gray hover:from-spotify-gray hover:to-spotify-light text-white font-medium py-3 px-8 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 border border-spotify-gray"
+                >
+                  <span className="flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    Admin Dashboard
+                  </span>
+                </Link>
+              )}
+              <Link
+                to="/library"
+                className="group bg-transparent hover:bg-spotify-dark text-spotify-gray-light hover:text-white font-medium py-3 px-8 rounded-full transition-all duration-300 border border-spotify-gray hover:border-spotify-gray-light shadow-lg hover:shadow-xl transform hover:scale-105"
+              >
+                <span className="flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                  Your Library
+                </span>
+              </Link>
+            </div>
+            <p className="text-spotify-gray-light text-sm">
+              💡 <strong>Tip:</strong> Use the menu button (☰) in the top-left to access more features like playlists and settings.
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Search and Filter Section */}
       <div className="bg-spotify-dark rounded-xl p-6 shadow-spotify">
+        <h2 className="text-xl font-semibold text-white mb-4">Find Your Music</h2>
         <div className="flex flex-col md:flex-row gap-4 items-center">
           <div className="relative flex-1">
             <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-spotify-gray-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
