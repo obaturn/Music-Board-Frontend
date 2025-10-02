@@ -1,0 +1,204 @@
+
+import { User, Music, UserRole, WordPressPost } from '../types';
+
+// --- Helper Functions ---
+const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+const createMockJwt = (user: User): string => {
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const payload = { ...user, iat: Date.now() };
+  return `${btoa(JSON.stringify(header))}.${btoa(JSON.stringify(payload))}.mocksignature`;
+};
+
+const decodeMockJwt = (token: string): User | null => {
+  try {
+    const [, payload] = token.split('.');
+    return JSON.parse(atob(payload));
+  } catch (error) {
+    return null;
+  }
+};
+
+// --- LocalStorage Initialization ---
+const initLocalStorage = () => {
+    if (!localStorage.getItem('users')) {
+        localStorage.setItem('users', JSON.stringify([]));
+    }
+    if (!localStorage.getItem('music')) {
+        const initialMusic: Music[] = [
+             {
+                _id: '1',
+                title: 'Bohemian Rhapsody',
+                artist: 'Queen',
+                genre: 'Rock',
+                album: 'A Night at the Opera',
+                releaseYear: 1975,
+                duration: 355,
+                description: 'An iconic rock opera masterpiece.',
+                coverArt: 'https://picsum.photos/seed/bohemian/400',
+                createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(),
+                ownerId: 'admin_user_id',
+            },
+            {
+                _id: '2',
+                title: 'Blinding Lights',
+                artist: 'The Weeknd',
+                genre: 'Synth-pop',
+                album: 'After Hours',
+                releaseYear: 2020,
+                duration: 200,
+                description: 'A retro-infused chart-topper.',
+                coverArt: 'https://picsum.photos/seed/blinding/400',
+                createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
+                ownerId: 'employer_user_id',
+            },
+            {
+                _id: '3',
+                title: 'Stairway to Heaven',
+                artist: 'Led Zeppelin',
+                genre: 'Rock',
+                album: 'Led Zeppelin IV',
+                releaseYear: 1971,
+                duration: 482,
+                description: 'A legendary rock anthem.',
+                coverArt: 'https://picsum.photos/seed/stairway/400',
+                createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10).toISOString(),
+                ownerId: 'admin_user_id',
+            },
+        ];
+        localStorage.setItem('music', JSON.stringify(initialMusic));
+    }
+    if (!localStorage.getItem('wp_posts')) {
+         const mockPosts: WordPressPost[] = [
+            { id: 1, date: new Date().toISOString(), title: { rendered: 'The Rise of Indie Pop' }, excerpt: { rendered: 'Exploring the artists and sounds that define the new wave of indie pop music...' }, link: '#' },
+            { id: 2, date: new Date().toISOString(), title: { rendered: 'A Look Back at 90s Hip Hop' }, excerpt: { rendered: 'From golden age beats to lyrical legends, we dive into the most influential decade in hip hop.' }, link: '#' },
+        ];
+        localStorage.setItem('wp_posts', JSON.stringify(mockPosts));
+    }
+};
+
+initLocalStorage();
+
+// --- API Functions ---
+export const api = {
+    register: async (username: string, email: string, password: string, role: UserRole): Promise<{ message: string }> => {
+        await delay(500);
+        const users: User[] = JSON.parse(localStorage.getItem('users') || '[]');
+        if (users.some(u => u.email === email)) {
+            throw new Error('User with this email already exists.');
+        }
+        const newUser: User = { id: `user_${Date.now()}`, username, email, role };
+        users.push(newUser); // In a real app, you'd store a hashed password
+        localStorage.setItem('users', JSON.stringify(users));
+        return { message: 'User registered successfully' };
+    },
+
+    login: async (email: string, password: string): Promise<{ token: string }> => {
+        await delay(500);
+        const users: User[] = JSON.parse(localStorage.getItem('users') || '[]');
+        let user = users.find(u => u.email === email);
+        
+        // Seed an admin if it doesn't exist
+        if (!user && email === 'admin@music.com') {
+             const adminUser: User = { id: 'admin_user_id', username: 'Admin', email: 'admin@music.com', role: UserRole.ADMIN };
+             users.push(adminUser);
+             localStorage.setItem('users', JSON.stringify(users));
+             user = adminUser;
+        }
+
+        if (!user) {
+            throw new Error('Invalid credentials.');
+        }
+        // In real app, you would compare hashed password. Here, any password is fine for mock.
+        const token = createMockJwt(user);
+        return { token };
+    },
+    
+    getCurrentUser: (token: string): User | null => {
+        return decodeMockJwt(token);
+    },
+
+    getMusic: async (): Promise<Music[]> => {
+        await delay(500);
+        const musicList: Music[] = JSON.parse(localStorage.getItem('music') || '[]');
+        return musicList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    },
+
+    getMusicById: async (id: string): Promise<Music> => {
+        await delay(300);
+        const musicList: Music[] = JSON.parse(localStorage.getItem('music') || '[]');
+        const music = musicList.find(m => m._id === id);
+        if (!music) {
+            throw new Error('Music not found.');
+        }
+        return music;
+    },
+
+    // FIX: The ownerId is derived from the token inside this function, so it should not be part of the input data type.
+    createMusic: async (data: Omit<Music, '_id' | 'createdAt' | 'coverArt' | 'ownerId'>, token: string): Promise<Music> => {
+        await delay(700);
+        const user = decodeMockJwt(token);
+        if (!user || ![UserRole.ADMIN, UserRole.EMPLOYER].includes(user.role)) {
+            throw new Error('Unauthorized');
+        }
+
+        const musicList: Music[] = JSON.parse(localStorage.getItem('music') || '[]');
+        const newMusic: Music = {
+            ...data,
+            _id: `music_${Date.now()}`,
+            createdAt: new Date().toISOString(),
+            coverArt: `https://picsum.photos/seed/${data.title.replace(/\s/g, '')}/400`,
+            ownerId: user.id
+        };
+        musicList.push(newMusic);
+        localStorage.setItem('music', JSON.stringify(musicList));
+        return newMusic;
+    },
+
+    updateMusic: async (id: string, data: Partial<Music>, token: string): Promise<Music> => {
+        await delay(700);
+        const user = decodeMockJwt(token);
+        if (!user) throw new Error('Unauthorized');
+
+        let musicList: Music[] = JSON.parse(localStorage.getItem('music') || '[]');
+        const musicIndex = musicList.findIndex(m => m._id === id);
+        if (musicIndex === -1) throw new Error('Music not found');
+
+        const musicToUpdate = musicList[musicIndex];
+        if (user.role !== UserRole.ADMIN && user.id !== musicToUpdate.ownerId) {
+             throw new Error('Forbidden: You do not own this resource.');
+        }
+
+        const updatedMusic = { ...musicToUpdate, ...data };
+        musicList[musicIndex] = updatedMusic;
+        localStorage.setItem('music', JSON.stringify(musicList));
+        return updatedMusic;
+    },
+
+    deleteMusic: async (id: string, token: string): Promise<{ message: string }> => {
+        await delay(500);
+        const user = decodeMockJwt(token);
+        if (!user) throw new Error('Unauthorized');
+
+        let musicList: Music[] = JSON.parse(localStorage.getItem('music') || '[]');
+        const musicToDelete = musicList.find(m => m._id === id);
+        if (!musicToDelete) throw new Error('Music not found');
+        
+        if (user.role !== UserRole.ADMIN && user.id !== musicToDelete.ownerId) {
+             throw new Error('Forbidden: You do not own this resource.');
+        }
+
+        musicList = musicList.filter(m => m._id !== id);
+        localStorage.setItem('music', JSON.stringify(musicList));
+        return { message: 'Music deleted successfully' };
+    },
+
+    getWpPosts: async (token: string): Promise<WordPressPost[]> => {
+        await delay(800);
+        const user = decodeMockJwt(token);
+        if (!user || user.role !== UserRole.ADMIN) {
+            throw new Error('Unauthorized');
+        }
+        return JSON.parse(localStorage.getItem('wp_posts') || '[]');
+    },
+};

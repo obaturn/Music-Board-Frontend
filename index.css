@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom Spotify-inspired styles */
+@layer base {
+  html {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  body {
+    background-color: #121212;
+    color: #ffffff;
+  }
+}
+
+@layer components {
+  .spotify-card {
+    @apply bg-spotify-dark rounded-lg shadow-spotify hover:shadow-spotify-hover transition-shadow duration-300;
+  }
+
+  .spotify-button {
+    @apply bg-spotify-green hover:bg-spotify-green-hover text-white font-medium py-2 px-4 rounded-full transition-colors duration-200;
+  }
+
+  .spotify-button-secondary {
+    @apply bg-transparent hover:bg-spotify-light text-white font-medium py-2 px-4 rounded-full transition-colors duration-200 border border-spotify-gray;
+  }
+
+  .spotify-input {
+    @apply bg-spotify-dark border border-spotify-gray rounded-md px-3 py-2 text-white placeholder-spotify-gray-light focus:outline-none focus:ring-2 focus:ring-spotify-green focus:border-transparent;
+  }
+
+  .spotify-sidebar-link {
+    @apply flex items-center gap-4 px-4 py-3 text-spotify-gray-light hover:text-white hover:bg-spotify-light rounded-md transition-colors duration-200 cursor-pointer;
+  }
+
+  .spotify-sidebar-link.active {
+    @apply text-white bg-spotify-light;
+  }
+}

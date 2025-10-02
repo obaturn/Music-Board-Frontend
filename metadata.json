@@ -1,0 +1,5 @@
+{
+  "name": "React Music Board",
+  "description": "A responsive music board application built with React, TypeScript, and Tailwind CSS. It features user authentication, role-based access, and full CRUD functionality for music entries.",
+  "requestFramePermissions": []
+}
